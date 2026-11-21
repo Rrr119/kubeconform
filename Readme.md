@@ -42,6 +42,7 @@ sys	0m1,069s
 * [Installation](#Installation)
 * [Usage](#Usage)
   * [Usage examples](#Usage-examples)
+  * [Incremental validation](#Incremental-validation)
   * [Proxy support](#Proxy-support)
 * [Overriding schemas location](#Overriding-schemas-location)
   * [CustomResourceDefinition (CRD) Support](#CustomResourceDefinition-CRD-Support)
@@ -115,6 +116,10 @@ Usage: kubeconform [OPTION]... [FILE OR FOLDER]...
     	regular expression specifying paths to ignore (can be specified multiple times)
   -ignore-missing-schemas
     	skip files with missing schemas instead of failing
+  -incremental
+        reuse validation results for unchanged resources
+  -incremental-cache string
+        incremental validation cache file (default ".kubeconform-cache.json")
   -insecure-skip-tls-verify
     	disable verification of the server's SSL certificate. This will make your HTTPS connections insecure
   -kubernetes-version string
@@ -195,6 +200,22 @@ fixtures/crd_schema.yaml - CustomResourceDefinition trainingjobs.sagemaker.aws.a
 fixtures/invalid.yaml - ReplicationController bob is invalid: Invalid type. Expected: [integer,null], given: string
 [...]
 Summary: 65 resources found in 34 files - Valid: 55, Invalid: 2, Errors: 8 Skipped: 0
+```
+
+### Incremental validation
+
+Use `-incremental` to reuse results from previous runs for manifests whose contents have not changed.
+Results are keyed by manifest content together with the Kubernetes version, strict mode, schema locations,
+and skip/reject configuration, so changing any of these settings forces a fresh validation.
+
+```bash
+$ kubeconform -incremental -kubernetes-version 1.27.2 manifests/
+```
+
+The default cache file is `.kubeconform-cache.json`. Override it with `-incremental-cache`:
+
+```bash
+$ kubeconform -incremental -incremental-cache .cache/kubeconform.json manifests/
 ```
 
 ### Proxy support

@@ -16,6 +16,8 @@ type Config struct {
 	Help                   bool                `yaml:"help" json:"help"`
 	IgnoreFilenamePatterns []string            `yaml:"ignoreFilenamePatterns" json:"ignoreFilenamePatterns"`
 	IgnoreMissingSchemas   bool                `yaml:"ignoreMissingSchemas" json:"ignoreMissingSchemas"`
+	Incremental            bool                `yaml:"incremental" json:"incremental"`
+	IncrementalCache       string              `yaml:"incrementalCache" json:"incrementalCache"`
 	KubernetesVersion      k8sVersionValue     `yaml:"kubernetesVersion" json:"kubernetesVersion"`
 	NumberOfWorkers        int                 `yaml:"numberOfWorkers" json:"numberOfWorkers"`
 	OutputFormat           string              `yaml:"output" json:"output"`
@@ -90,6 +92,8 @@ func FromFlags(progName string, args []string) (Config, string, error) {
 	flags.BoolVar(&c.Debug, "debug", false, "print debug information")
 	flags.BoolVar(&c.ExitOnError, "exit-on-error", false, "immediately stop execution when the first error is encountered")
 	flags.BoolVar(&c.IgnoreMissingSchemas, "ignore-missing-schemas", false, "skip files with missing schemas instead of failing")
+	flags.BoolVar(&c.Incremental, "incremental", false, "reuse validation results for unchanged resources")
+	flags.StringVar(&c.IncrementalCache, "incremental-cache", "", "incremental validation cache file (default \".kubeconform-cache.json\")")
 	flags.Var(&ignoreFilenamePatterns, "ignore-filename-pattern", "regular expression specifying paths to ignore (can be specified multiple times)")
 	flags.BoolVar(&c.Summary, "summary", false, "print a summary at the end (ignored for junit output)")
 	flags.IntVar(&c.NumberOfWorkers, "n", 4, "number of goroutines to run concurrently")
@@ -109,6 +113,9 @@ func FromFlags(progName string, args []string) (Config, string, error) {
 
 	c.SkipKinds = splitCSV(skipKindsCSV)
 	c.RejectKinds = splitCSV(rejectKindsCSV)
+	if c.IncrementalCache != "" {
+		c.Incremental = true
+	}
 	c.IgnoreFilenamePatterns = ignoreFilenamePatterns
 	c.SchemaLocations = schemaLocationsParam
 	c.Files = flags.Args()

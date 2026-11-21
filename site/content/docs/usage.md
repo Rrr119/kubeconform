@@ -19,6 +19,10 @@ Usage: ./bin/kubeconform [OPTION]... [FILE OR FOLDER]...
         regular expression specifying paths to ignore (can be specified multiple times)
   -ignore-missing-schemas
         skip files with missing schemas instead of failing
+  -incremental
+        reuse validation results for unchanged resources
+  -incremental-cache string
+        incremental validation cache file (default ".kubeconform-cache.json")
   -insecure-skip-tls-verify
         disable verification of the server's SSL certificate. This will make your HTTPS connections insecure
   -kubernetes-version string
@@ -84,3 +88,14 @@ fixtures/invalid.yaml - ReplicationController bob is invalid: Invalid type. Expe
 [...]
 Summary: 65 resources found in 34 files - Valid: 55, Invalid: 2, Errors: 8 Skipped: 0
 {{< /prism >}}
+
+### Incremental validation
+
+Use `-incremental` to reuse results from previous runs for manifests whose contents have not changed.
+The cache key includes the Kubernetes version, strict mode, schema locations, and skip/reject configuration.
+
+{{< prism >}}$ ./bin/kubeconform -incremental -kubernetes-version 1.27.2 manifests/
+$ ./bin/kubeconform -incremental -incremental-cache .cache/kubeconform.json manifests/
+{{< /prism >}}
+
+The default cache file is `.kubeconform-cache.json`.

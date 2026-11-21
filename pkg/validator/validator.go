@@ -66,6 +66,8 @@ type Opts struct {
 	KubernetesVersion    string              // Kubernetes Version - has to match one in https://github.com/instrumenta/kubernetes-json-schema
 	Strict               bool                // Throws an error if resources contain undocumented fields
 	IgnoreMissingSchemas bool                // skip a resource if no schema for that resource can be found
+	Incremental          bool                // Reuse validation results for unchanged resources
+	IncrementalCache     string              // Incremental validation cache file
 }
 
 // New returns a new Validator
@@ -96,6 +98,15 @@ func New(schemaLocations []string, opts Opts) (Validator, error) {
 		opts.RejectKinds = map[string]struct{}{}
 	}
 
+	var incremental *incrementalCache
+	if opts.Incremental || opts.IncrementalCache != "" {
+		var err error
+		incremental, err = newIncrementalCache(opts.IncrementalCache)
+		if err != nil {
+			return nil, fmt.Errorf("failed opening incremental validation cache %s: %s", opts.IncrementalCache, err)
+		}
+	}
+
 	var filecache cache.Cache = nil
 	if opts.Cache != "" {
 		fi, err := os.Stat(opts.Cache)
@@ -118,6 +129,8 @@ func New(schemaLocations []string, opts Opts) (Validator, error) {
 		opts:              opts,
 		schemaDownload:    downloadSchema,
 		schemaMemoryCache: cache.NewInMemoryCache(),
+		incremental:       incremental,
+		incrementalCtx:    incrementalContextHash(opts, schemaLocations),
 		regs:              registries,
 		loader: jsonschema.SchemeURLLoader{
 			"file":  jsonschema.FileLoader{},
@@ -132,6 +145,8 @@ type v struct {
 	schemaDiskCache   cache.Cache
 	schemaMemoryCache cache.Cache
 	schemaDownload    func(registries []registry.Registry, loader jsonschema.SchemeURLLoader, kind, version, k8sVersion string) (*jsonschema.Schema, error)
+	incremental       *incrementalCache
+	incrementalCtx    string
 	regs              []registry.Registry
 	loader            jsonschema.SchemeURLLoader
 }
@@ -166,6 +181,22 @@ func (val *v) ValidateResource(res resource.Resource) Result {
 
 	if len(res.Bytes) == 0 {
 		return Result{Resource: res, Err: nil, Status: Empty}
+	}
+
+	cacheKey := ""
+	if val.incremental != nil {
+		cacheKey = incrementalResourceKey(val.incrementalCtx, res.Bytes)
+		if entry, ok := val.incremental.Get(cacheKey); ok {
+			result := Result{
+				Resource:         res,
+				Status:           entry.Status,
+				ValidationErrors: entry.ValidationErrors,
+			}
+			if entry.Err != "" {
+				result.Err = errors.New(entry.Err)
+			}
+			return result
+		}
 	}
 
 	var r map[string]interface{}
@@ -242,20 +273,52 @@ func (val *v) ValidateResource(res resource.Resource) Result {
 
 		}
 
-		return Result{
+		return val.rememberResult(cacheKey, Result{
 			Resource:         res,
 			Status:           Invalid,
 			Err:              fmt.Errorf("problem validating schema. Check JSON formatting: %s", strings.ReplaceAll(err.Error(), "\n", " ")),
 			ValidationErrors: validationErrors,
-		}
+		})
 	}
 
-	return Result{Resource: res, Status: Valid}
+	return val.rememberResult(cacheKey, Result{Resource: res, Status: Valid})
+}
+
+func (val *v) rememberResult(cacheKey string, result Result) Result {
+	if cacheKey == "" || val.incremental == nil {
+		return result
+	}
+
+	switch result.Status {
+	case Valid, Invalid:
+		entry := incrementalEntry{
+			Status:           result.Status,
+			ValidationErrors: append([]ValidationError(nil), result.ValidationErrors...),
+		}
+		if result.Err != nil {
+			entry.Err = result.Err.Error()
+		}
+		val.incremental.Set(cacheKey, entry)
+	}
+
+	return result
+}
+
+// Flush stores incremental validation results.
+func (val *v) Flush() error {
+	if val.incremental == nil {
+		return nil
+	}
+	return val.incremental.Flush()
 }
 
 // ValidateWithContext validates resources found in r
 // filename should be a name for the stream, such as a filename or stdin
 func (val *v) ValidateWithContext(ctx context.Context, filename string, r io.ReadCloser) []Result {
+	defer func() {
+		_ = val.Flush()
+	}()
+
 	validationResults := []Result{}
 	resourcesChan, _ := resource.FromStream(ctx, filename, r)
 	for {

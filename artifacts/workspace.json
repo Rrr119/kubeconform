@@ -1,0 +1,17 @@
+{
+  "root": "/home/dev/feedback/uid32222",
+  "B": "/home/dev/feedback/uid32222",
+  "sha": "1f491eb329ede725abdfd0106a32e361883d5d68",
+  "wslDistro": "Ubuntu-26.04",
+  "source": {
+    "owner": "yannh",
+    "repo": "kubeconform",
+    "sha": "1f491eb329ede725abdfd0106a32e361883d5d68"
+  },
+  "fork": {
+    "owner": "Rrr119",
+    "repo": "kubeconform",
+    "cloneUrl": "https://github.com/Rrr119/kubeconform.git"
+  },
+  "at": "2026-11-21T19:14:23.527Z"
+}

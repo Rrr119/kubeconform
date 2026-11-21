@@ -87,6 +87,8 @@ func kubeconform(cfg config.Config) int {
 		KubernetesVersion:    cfg.KubernetesVersion.String(),
 		Strict:               cfg.Strict,
 		IgnoreMissingSchemas: cfg.IgnoreMissingSchemas,
+		Incremental:          cfg.Incremental,
+		IncrementalCache:     cfg.IncrementalCache,
 	})
 	if err != nil {
 		fmt.Fprintln(os.Stderr, err)
@@ -148,6 +150,12 @@ func kubeconform(cfg config.Config) int {
 	close(validationResults)
 	success := <-successChan
 	o.Flush()
+	if f, ok := v.(interface{ Flush() error }); ok {
+		if err := f.Flush(); err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			success = false
+		}
+	}
 
 	if !success {
 		return 1

@@ -120,6 +120,34 @@ func TestFromFlags(t *testing.T) {
 			},
 		},
 		{
+			[]string{"-incremental", "-incremental-cache", "validation-cache.json"},
+			Config{
+				Files:             []string{},
+				Incremental:       true,
+				IncrementalCache:  "validation-cache.json",
+				KubernetesVersion: "master",
+				NumberOfWorkers:   4,
+				OutputFormat:      "text",
+				SchemaLocations:   nil,
+				SkipKinds:         map[string]struct{}{},
+				RejectKinds:       map[string]struct{}{},
+			},
+		},
+		{
+			[]string{"-incremental-cache", "validation-cache.json"},
+			Config{
+				Files:             []string{},
+				Incremental:       true,
+				IncrementalCache:  "validation-cache.json",
+				KubernetesVersion: "master",
+				NumberOfWorkers:   4,
+				OutputFormat:      "text",
+				SchemaLocations:   nil,
+				SkipKinds:         map[string]struct{}{},
+				RejectKinds:       map[string]struct{}{},
+			},
+		},
+		{
 			[]string{"-summary", "-verbose", "file1", "file2"},
 			Config{
 				Files:             []string{"file1", "file2"},
